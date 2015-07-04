@@ -24,49 +24,40 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This is a basic example of a Storm topology.
- * spout随机产生单词，交给bolt，加一个感叹号，再交给bolt，再加一个感叹号
+ * spout随机产生单词，交给bolt，加上叹号后输出
+ * 使用命名stream
  */
-public class ExclamationTopology {
+public class ExclamationTopology2 {
 
 	public static void main(String[] args) throws Exception {
 		TopologyBuilder builder = new TopologyBuilder();
-
-		builder.setSpout("word", new TestWordSpout(), 2);
-		builder.setBolt("exclaim1", new ExclamationBolt(), 2).shuffleGrouping(
-				"word");
-		builder.setBolt("exclaim2", new ExclamationBolt(), 2).shuffleGrouping(
-				"exclaim1");
+		builder.setSpout("mySpout", new TestWordSpout2(), 4);
+		builder.setBolt("myBolt", new ExclamationBolt2(), 2).fieldsGrouping(
+				"mySpout", "streamId1", new Fields("word"));
 
 		Config conf = new Config();
 		conf.setDebug(true);
 
-		if (args != null && args.length > 0) {
-			conf.setNumWorkers(3);
-
-			StormSubmitter.submitTopologyWithProgressBar(args[0], conf,
-					builder.createTopology());
-		} else {
-
-			LocalCluster cluster = new LocalCluster();
-			cluster.submitTopology("test", conf, builder.createTopology());
-			Utils.sleep(10000);
-			cluster.killTopology("test");
-			cluster.shutdown();
-		}
+		LocalCluster cluster = new LocalCluster();
+		cluster.submitTopology("test", conf, builder.createTopology());
+		Utils.sleep(10000);
+		cluster.killTopology("test");
+		cluster.shutdown();
 	}
-}
 
-class TestWordSpout extends BaseRichSpout {
-	private static final long serialVersionUID = 1L;
+	
+}
+class TestWordSpout2 extends BaseRichSpout {
+	private static final long serialVersionUID = 7012309812739928986L;
 	public static Logger LOG = LoggerFactory.getLogger(TestWordSpout.class);
 	boolean _isDistributed;
 	SpoutOutputCollector _collector;
 
-	public TestWordSpout() {
+	public TestWordSpout2() {
 		this(true);
 	}
 
-	public TestWordSpout(boolean isDistributed) {
+	public TestWordSpout2(boolean isDistributed) {
 		_isDistributed = isDistributed;
 	}
 	
@@ -83,11 +74,11 @@ class TestWordSpout extends BaseRichSpout {
 				"golda", "bertels" };
 		final Random rand = new Random();
 		final String word = words[rand.nextInt(words.length)];
-		_collector.emit(new Values(word));
+		_collector.emit("streamId1", new Values(word));
 	}
 
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields("word"));
+		declarer.declareStream("streamId1",new Fields("word"));
 	}
 
 	@Override
@@ -101,9 +92,8 @@ class TestWordSpout extends BaseRichSpout {
 		}
 	}
 }
-
-class ExclamationBolt extends BaseRichBolt {
-	private static final long serialVersionUID = 6367155012624217933L;
+class ExclamationBolt2 extends BaseRichBolt {
+	private static final long serialVersionUID = -951776470328476166L;
 	OutputCollector _collector;
 
 	@Override
@@ -114,13 +104,14 @@ class ExclamationBolt extends BaseRichBolt {
 
 	@Override
 	public void execute(Tuple tuple) {
-		_collector.emit(tuple, new Values(tuple.getString(0) + "!"));
-		_collector.ack(tuple);
+		//_collector.emit(tuple, new Values(tuple.getString(0) + "!"));
+		System.out.println(tuple.getString(0) + "!");
+		//_collector.ack(tuple);
 	}
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields("word"));
+		// TODO Auto-generated method stub
 	}
 
 }
